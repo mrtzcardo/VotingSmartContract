@@ -15,17 +15,17 @@ let blk_leq =
     let bc1 = builtin blt blk1 blk2 in
     let bc2 = builtin eq blk1 blk2 in
     orb bc1 bc2
-
-
-(*Values*)
-let tt = True
-let one = Int32 1
+    
+let valid_vote =
+  fun(within_time_limit : Bool)=>
+  fun(has_not_voted     : Bool)=>
+    andb within_time_limit has_not_voted
 
 (*Error Codes*)
-let vote_yes_accepted_code = Int32 -1
-let vote_no_accepted_code = Int32 -2
-let voting_ended_code = Int32 -3
-let already_voted_code =Int32 -4
+let vote_yes_accepted_code = Int256 1
+let vote_no_accepted_code = Int256 2
+let voting_ended_code = Int256 3
+let already_voted_code =Int256 4
 
 (***************************************************)
 (*             The contract definition             *)
@@ -39,21 +39,21 @@ voting_start: BNum,
 vote_max_block : BNum)
 
 (* Mutable fields *)
-field voters : Map ByStr20 Bool = Emp ByStr20 Bool
-field voted : Bool = False
-field yes_count: Int256 = Int256 0
-field no_ncount: Int256 = Int256 0
+field voters    : Map ByStr20 Bool = Emp ByStr20 Bool
+field one_vote  : Int256 = Int256 1
+field yes_count : Int256 = Int256 0
+field no_count  : Int256 = Int256 0
 
 
 (*VoteYes*)
-procedure votingYesEvent(failure: Bool, error_code: Int32)
+procedure votingYesEvent(failure: Bool, error_code: Int256)
   match failure with
     | False =>
-      e = {_eventname: "VotingYesSuccess"; voter: _send; amount: _amount; code: vote_yes_accepted_code};
+      e = {_eventname: "VotingYesSuccess"; shoutout : "Thank you for Voting!"; voter: _sender; amount: _amount; code: vote_yes_accepted_code};
       event e
       
     | True =>
-      e = {_eventname: "VotingYesFailure"; shoutout : "Thank you for Voting!"; voter: _send; amount: _amount; code: error_code};
+      e = {_eventname: "VotingYesFailure"; shoutout : "Please try again!"; voter: _sender; amount: _amount; code: error_code};
       event e
   end
 end
@@ -62,14 +62,13 @@ procedure performVoteYes()
   c <- exists voters[_sender];
   match c with 
     | False =>
-      voted:= True;
+      (*tt = True;
+      voters[_sender]:= tt;*)
       one256 = Int256 1;
       yes_count_total <- yes_count;
       yes_count_plus_one = builtin add yes_count_total one256;
       yes_count:= yes_count_plus_one;
-      voters[_sender] := voted;
       votingYesEvent c vote_yes_accepted_code
-      
     | True =>
       votingYesEvent c already_voted_code
   end
@@ -82,21 +81,48 @@ transition voteYes()
     | True =>
       performVoteYes
     | False =>
+      tt = True;
       votingYesEvent tt voting_ended_code
   end
-  
 end
 
 (*VoteNo*)
-procedure voteNoFailure(error_code: Int32)
+procedure votingNoEvent(failure: Bool, error_code: Int256)
+  match failure with
+    | False =>
+      e = {_eventname: "VotingNoSuccess"; shoutout : "Thank you for Voting!"; voter: _sender; amount: _amount; code: vote_no_accepted_code};
+      event e
+      
+    | True =>
+      e = {_eventname: "VotingYesFailure"; shoutout : "Please try again!"; voter: _sender; amount: _amount; code: error_code};
+      event e
+  end
 end
 
-transition VoteNo()
-  (*one256 = Int256 1;
-  noCountTotal <- noCount;
-  noCountPlusOne = builtin add noCountTotal one256;
-  noCount:= noCountPlusOne*)
+procedure performVoteNo()
+  c <- exists voters[_sender];
+  match c with 
+    | False =>
+      tt = True;
+      voters[_sender]:= tt;
+      one256 = Int256 1;
+      no_count_total <- no_count;
+      no_count_plus_one = builtin add no_count_total one256;
+      no_count:= no_count_plus_one;
+      votingNoEvent c vote_no_accepted_code
+    | True =>
+      votingNoEvent c already_voted_code
+  end
 end
 
-transition getVotes()
+transition voteNo()
+  current_blk <- & BLOCKNUMBER;
+  in_time = blk_leq current_blk vote_max_block;
+  match in_time with
+    | True =>
+      performVoteNo
+    | False =>
+      tt = True;
+      votingNoEvent tt voting_ended_code
+  end
 end
