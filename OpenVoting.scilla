@@ -33,10 +33,10 @@ let already_voted_code =Int256 4
 contract OpenVoting
 
 (*  Parameters *)
-(organizer: ByStr20,
-description: String,
-voting_start: BNum,
-vote_max_block : BNum)
+(organizer      : ByStr20,
+description     : String,
+voting_start    : BNum,
+vote_max_block  : BNum)
 
 (* Mutable fields *)
 field voters    : Map ByStr20 Bool = Emp ByStr20 Bool
