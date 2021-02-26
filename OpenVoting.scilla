@@ -1,0 +1,102 @@
+scilla_version 0
+
+
+(***************************************************)
+(*               Associated library                *)
+(***************************************************)
+import BoolUtils
+
+library OpenVoting
+
+(*Functions*)
+let blk_leq =
+  fun(blk1 : BNum)=>
+  fun(blk2 : BNum)=>
+    let bc1 = builtin blt blk1 blk2 in
+    let bc2 = builtin eq blk1 blk2 in
+    orb bc1 bc2
+
+
+(*Values*)
+let tt = True
+let one = Int32 1
+
+(*Error Codes*)
+let vote_yes_accepted_code = Int32 -1
+let vote_no_accepted_code = Int32 -2
+let voting_ended_code = Int32 -3
+let already_voted_code =Int32 -4
+
+(***************************************************)
+(*             The contract definition             *)
+(***************************************************)
+contract OpenVoting
+
+(*  Parameters *)
+(organizer: ByStr20,
+description: String,
+voting_start: BNum,
+vote_max_block : BNum)
+
+(* Mutable fields *)
+field voters : Map ByStr20 Bool = Emp ByStr20 Bool
+field voted : Bool = False
+field yes_count: Int256 = Int256 0
+field no_ncount: Int256 = Int256 0
+
+
+(*VoteYes*)
+procedure votingYesEvent(failure: Bool, error_code: Int32)
+  match failure with
+    | False =>
+      e = {_eventname: "VotingYesSuccess"; voter: _send; amount: _amount; code: vote_yes_accepted_code};
+      event e
+      
+    | True =>
+      e = {_eventname: "VotingYesFailure"; shoutout : "Thank you for Voting!"; voter: _send; amount: _amount; code: error_code};
+      event e
+  end
+end
+
+procedure performVoteYes()
+  c <- exists voters[_sender];
+  match c with 
+    | False =>
+      voted:= True;
+      one256 = Int256 1;
+      yes_count_total <- yes_count;
+      yes_count_plus_one = builtin add yes_count_total one256;
+      yes_count:= yes_count_plus_one;
+      voters[_sender] := voted;
+      votingYesEvent c vote_yes_accepted_code
+      
+    | True =>
+      votingYesEvent c already_voted_code
+  end
+end
+
+transition voteYes()
+  current_blk <- & BLOCKNUMBER;
+  in_time = blk_leq current_blk vote_max_block;
+  match in_time with
+    | True =>
+      performVoteYes
+    | False =>
+      votingYesEvent tt voting_ended_code
+  end
+  
+end
+
+(*VoteNo*)
+procedure voteNoFailure(error_code: Int32)
+end
+
+transition VoteNo()
+  (*one256 = Int256 1;
+  noCountTotal <- noCount;
+  noCountPlusOne = builtin add noCountTotal one256;
+  noCount:= noCountPlusOne*)
+end
+
+transition getVotes()
+end
